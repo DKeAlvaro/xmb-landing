@@ -7,10 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="preload" href="icon-tino.jpg" as="image" />
-  <link rel="preload" href="icon-encargo.jpg" as="image" />
-  <link rel="preload" href="icon-lista.jpg" as="image" />
-  <link rel="preload" href="icon-correo.jpg" as="image" />
+  <link rel="preload" href="icon-tino.jpg?v=4" as="image" />
+  <link rel="preload" href="icon-encargo.jpg?v=4" as="image" />
+  <link rel="preload" href="icon-lista.jpg?v=4" as="image" />
+  <link rel="preload" href="icon-correo.jpg?v=4" as="image" />
   <style>
     :root {
       --navy: #03101f;
@@ -20,9 +20,11 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
-      min-height: 100%;
-      overflow-x: hidden;
-      overflow-y: auto;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+      touch-action: none;
       background: var(--navy);
       color: var(--type);
       -webkit-tap-highlight-color: transparent;
@@ -30,11 +32,14 @@
     body {
       font-family: Syne, sans-serif;
       font-weight: 400;
+      position: fixed;
+      inset: 0;
     }
     img { max-width: 100%; }
     canvas {
       position: fixed; inset: 0; width: 100%; height: 100%;
       display: block; z-index: 0; opacity: 0;
+      pointer-events: none;
     }
     .veil {
       position: fixed; inset: 0; z-index: 20; background: #03101f;
@@ -52,17 +57,19 @@
     .hud span { font-size: 0.74rem; opacity: 0.75; }
     .shell {
       position: relative; z-index: 2;
-      min-height: 100svh;
+      height: 100svh;
       max-width: 100%;
       display: grid;
       grid-template-columns: minmax(18rem, 34vw) minmax(16rem, 28rem);
       gap: 3rem;
-      align-items: start;
+      align-items: stretch;
       padding: 22vh 6vw 10vh;
       opacity: 0;
+      overflow: hidden;
     }
     body.ready .shell { opacity: 1; transition: opacity 0.4s linear; }
     body.ready .veil { transition: opacity 0.35s linear; }
+    .menu { align-self: start; }
     .bar { display: flex; gap: 1rem; }
     .col {
       width: 5.2rem; flex: 0 0 5.2rem;
@@ -72,7 +79,7 @@
     }
     .col img {
       display: block; width: 5.2rem; height: 5.2rem; max-width: 5.2rem;
-      margin: 0; object-fit: cover; object-position: 50% 46%;
+      margin: 0; object-fit: cover; object-position: 50% 50%;
       transform-origin: 50% 100%;
       -webkit-mask-image: radial-gradient(closest-side, #000 68%, transparent 86%);
       mask-image: radial-gradient(closest-side, #000 68%, transparent 86%);
@@ -87,32 +94,52 @@
       font-size: 0.86rem; font-weight: 600; letter-spacing: 0.03em;
       text-shadow: var(--halo);
     }
-    .stack { margin-top: 0.85rem; }
-    .item {
-      display: flex; align-items: flex-end; gap: 0.55rem;
-      padding: 0.42rem 0;
-      opacity: 0.38; cursor: default; user-select: none;
+    .stage {
+      position: relative;
+      min-height: 0;
+      min-width: 0;
     }
-    .item.on { opacity: 1; }
-    .pip {
-      width: 0.38rem; height: 0.38rem; border-radius: 50%;
-      background: #9ad4ee; margin-bottom: 0.32rem;
-    }
-    .item.on .pip { background: #fff; }
-    .item b { font-weight: 600; font-size: 1.05rem; text-shadow: var(--halo); }
-    .pane {
-      padding-top: 1.2rem;
+    .viewport {
+      height: 100%;
+      overflow: hidden;
+      padding-right: 1.15rem;
       will-change: transform, opacity;
     }
-    .pane h1 {
+    .track {
+      will-change: transform;
+    }
+    .slide {
+      overflow: hidden;
+      padding-top: 1.2rem;
+    }
+    .slide h1 {
       font-size: 1.75rem; font-weight: 600; line-height: 1.2;
       letter-spacing: 0.01em; margin-bottom: 0.8rem;
       text-shadow: var(--halo);
     }
-    .pane p {
+    .slide p {
       font-size: 1.05rem; font-weight: 400; line-height: 1.5; margin-top: 0.7rem;
       text-shadow: var(--halo);
     }
+    .pips {
+      position: absolute;
+      right: 0;
+      top: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.42rem;
+      z-index: 3;
+      pointer-events: auto;
+    }
+    .pips i {
+      display: block;
+      width: 0.34rem; height: 0.34rem;
+      border-radius: 50%;
+      background: #9ad4ee;
+      opacity: 0.28;
+      cursor: pointer;
+    }
+    .pips i.on { background: #fff; opacity: 0.95; }
     .help {
       position: fixed; left: 1.2rem; bottom: 0.8rem; z-index: 4;
       font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
@@ -128,20 +155,25 @@
         flex-direction: column;
         gap: 0.4rem;
         padding: 4.2rem 1.1rem 2rem;
-        min-height: 100svh;
+        height: 100svh;
       }
       .bar { display: flex; gap: 0.55rem; }
       .col { width: 4rem; flex: 0 0 4rem; }
       .col img { width: 4rem; height: 4rem; max-width: 4rem; }
       .cname { width: 4rem; font-size: 0.72rem; }
-      .stack { margin-top: 0.35rem; }
-      .pane {
-        padding: 0.9rem 0 0;
+      .stage { flex: 1; min-height: 0; }
+      .viewport {
+        padding: 0.9rem 1.1rem 0 0;
         border-top: 1px solid rgba(255,255,255,0.12);
         margin-top: 0.5rem;
       }
-      .pane h1 { font-size: 1.32rem; }
-      .pane p { font-size: 1rem; }
+      .slide { padding-top: 0; }
+      .slide h1 { font-size: 1.32rem; }
+      .slide p { font-size: 1rem; }
+      .pips {
+        right: 0;
+        top: 1.4rem;
+      }
     }
   </style>
 </head>
@@ -156,9 +188,13 @@
   <div class="shell" id="shell">
     <div class="menu">
       <div class="bar" id="bar"></div>
-      <div class="stack" id="stack" hidden></div>
     </div>
-    <article class="pane" id="pane"></article>
+    <div class="stage">
+      <div class="pips" id="pips" aria-hidden="true"></div>
+      <div class="viewport" id="viewport">
+        <div class="track" id="track"></div>
+      </div>
+    </div>
   </div>
   <p class="help">← → ↑ ↓</p>
 
@@ -166,46 +202,68 @@
     const CATS = [
       {
         name: "Qué es",
-        img: "icon-tino.jpg",
-        items: [{
-          t: "Alguien tiene que leer las pestañas",
-          body: ["Hay un trabajo que parece fácil y no lo es: dar con las personas correctas. No basta con abrir el buscador. Hay que decidir, pestaña a pestaña, si un laboratorio encaja, si el correo es de verdad, si merece la pena guardarlo."]
-        }]
+        img: "icon-tino.jpg?v=4",
+        items: [
+          {
+            t: "Encontrar a las personas correctas",
+            body: [
+              "Hay un tipo de trabajo que parece sencillo y no lo es: buscar a las personas correctas en internet. Grupos de universidad para un TFM, prácticas, posibles clientes. Hay que ir pestaña a pestaña viendo si un laboratorio encaja, quién manda de verdad y no un doctorando de paso, si el correo es real, y si merece la pena guardarlo.",
+              "Eso son horas de búsqueda. La persona que busca se convierte en el cuello de botella, porque cada pestaña pide tiempo."
+            ]
+          },
+          {
+            t: "Si se lo pides a un chat",
+            body: [
+              "Si se lo pides a ChatGPT o a Claude, te montan un agente más capado, el flujo que se inventan suele estar mal planteado, y el proceso es un engorro: tienes que saber qué pedir, ir corrigiendo y quedarte delante mientras trabaja. Quien no vive en esto acaba con algo que parece listo y no sirve.",
+              "Aquí el workflow ya está escrito. Tú dices qué buscas y el sistema hace el trabajo pesado. Así se acerca a gente normal el potencial real de la IA, sin que tengas que saber manejar agentes."
+            ]
+          }
+        ]
       },
       {
         name: "Cómo va",
-        img: "icon-encargo.jpg",
-        items: [{
-          t: "Tú dices qué buscas",
-          body: ["Solo te pide lo que quieres encontrar y una breve descripción de quién eres. A partir de ahí se pone a buscar en la red y te manda los resultados."]
-        }]
+        img: "icon-encargo.jpg?v=4",
+        items: [
+          {
+            t: "Tú dices qué buscas",
+            body: [
+              "Solo te pide lo que quieres encontrar y una breve descripción de quién eres: el tema, el país, cuántos, y las restricciones. A partir de ahí se pone a buscar en la red, más o menos como lo haría una persona, y te manda los resultados.",
+              "No tienes que montar un sistema de agentes. Rellenas el formulario, pagas, y al cabo de media hora te llega el archivo. La página no se queda haciendo el trabajo delante de ti: apunta el encargo y te dice que te escribirá."
+            ]
+          }
+        ]
       },
       {
         name: "La lista",
-        img: "icon-lista.jpg",
-        items: [{
-          t: "Te llega un archivo",
-          body: [
-            "Nombre, correo, organización, por qué encaja, y los enlaces para que puedas comprobarlo. Media hora, más o menos.",
-            "No es un chat. No escribe a esa gente por ti. No te vende la lista de otra persona."
-          ]
-        }]
+        img: "icon-lista.jpg?v=4",
+        items: [
+          {
+            t: "Te entregamos el archivo",
+            body: [
+              "Nombre, correo, organización, por qué encaja, y los enlaces para que puedas comprobarlo. Te llega por correo, en un CSV y con un enlace a una tabla. Es el resultado de tu búsqueda, no la lista de otra persona, y no escribimos a esa gente por ti."
+            ]
+          }
+        ]
       },
       {
         name: "Encargar",
-        img: "icon-correo.jpg",
-        items: [{
-          t: "49–79 € por búsqueda",
-          body: ["Pagas el encargo. Media hora más tarde, más o menos, te llega el archivo."]
-        }]
+        img: "icon-correo.jpg?v=4",
+        items: [
+          {
+            t: "49 a 79 euros por búsqueda",
+            body: [
+              "Pagas el encargo y, media hora más tarde, más o menos, te llega el archivo. Cobramos el trabajo, no un mes ilimitado. Eso cubre la búsqueda y la entrega; escribirles a los de la lista se queda fuera, a propósito."
+            ]
+          }
+        ]
       }
     ];
 
     let cx = 0, cy = 0, busy = false;
     const bar = document.getElementById("bar");
-    const stack = document.getElementById("stack");
-    const pane = document.getElementById("pane");
-    const shell = document.getElementById("shell");
+    const track = document.getElementById("track");
+    const viewport = document.getElementById("viewport");
+    const pips = document.getElementById("pips");
 
     function tickClock() {
       const n = new Date();
@@ -224,83 +282,221 @@
       "<span class=\"cname\">" + c.name + "</span></div>"
     ).join("");
 
-    function fillPane() {
-      const it = CATS[cx].items[cy];
-      pane.innerHTML = "<h1>" + it.t + "</h1>" + it.body.map(function (p) { return "<p>" + p + "</p>"; }).join("");
+    function slideH() {
+      const cs = getComputedStyle(viewport);
+      const pt = parseFloat(cs.paddingTop) || 0;
+      const pb = parseFloat(cs.paddingBottom) || 0;
+      return Math.max(1, viewport.clientHeight - pt - pb);
     }
 
-    function paintSel() {
+    function paintCols() {
       const cols = bar.children;
       for (let i = 0; i < cols.length; i++) {
         if (i === cx) cols[i].classList.add("on");
         else cols[i].classList.remove("on");
       }
-      fillPane();
     }
 
-    function go(next) {
-      if (next === cx || next < 0 || next >= CATS.length || busy) return;
+    function paintPips() {
+      const dots = pips.children;
+      for (let i = 0; i < dots.length; i++) {
+        if (i === cy) dots[i].classList.add("on");
+        else dots[i].classList.remove("on");
+      }
+    }
+
+    function applyY(animate) {
+      const h = slideH();
+      const slides = track.children;
+      for (let i = 0; i < slides.length; i++) slides[i].style.height = h + "px";
+      track.style.transition = animate
+        ? "transform 0.28s cubic-bezier(0.22, 0.82, 0.28, 1)"
+        : "none";
+      track.style.transform = "translate3d(0," + (-cy * h) + "px,0)";
+      paintPips();
+    }
+
+    function fillTrack() {
+      const items = CATS[cx].items;
+      track.innerHTML = items.map(function (it) {
+        return "<article class=\"slide\"><h1>" + it.t + "</h1>" +
+          it.body.map(function (p) { return "<p>" + p + "</p>"; }).join("") +
+          "</article>";
+      }).join("");
+      pips.innerHTML = items.length < 2 ? "" : items.map(function (_, i) {
+        return "<i" + (i === cy ? " class=\"on\"" : "") + " data-y=\"" + i + "\"></i>";
+      }).join("");
+      applyY(false);
+    }
+
+    function goX(next) {
+      if (next === cx || next < 0 || next >= CATS.length || busy) return false;
       const dir = next > cx ? 1 : -1;
       cx = next;
       cy = 0;
       busy = true;
-      pane.style.transition = "transform 0.18s ease, opacity 0.18s ease";
-      pane.style.transform = "translateX(" + (-dir * 28) + "px)";
-      pane.style.opacity = "0";
+      paintCols();
+      viewport.style.transition = "transform 0.18s ease, opacity 0.18s ease";
+      viewport.style.transform = "translate3d(" + (-dir * 28) + "px,0,0)";
+      viewport.style.opacity = "0";
       window.setTimeout(function () {
-        paintSel();
-        pane.style.transition = "none";
-        pane.style.transform = "translateX(" + (dir * 28) + "px)";
-        pane.offsetHeight;
-        pane.style.transition = "transform 0.22s ease, opacity 0.22s ease";
-        pane.style.transform = "translateX(0)";
-        pane.style.opacity = "1";
+        fillTrack();
+        viewport.style.transition = "none";
+        viewport.style.transform = "translate3d(" + (dir * 28) + "px,0,0)";
+        viewport.offsetHeight;
+        viewport.style.transition = "transform 0.22s ease, opacity 0.22s ease";
+        viewport.style.transform = "translate3d(0,0,0)";
+        viewport.style.opacity = "1";
         window.setTimeout(function () { busy = false; }, 230);
       }, 170);
+      return true;
+    }
+
+    function goY(next) {
+      const n = CATS[cx].items.length;
+      if (next === cy || next < 0 || next >= n || busy) return false;
+      cy = next;
+      busy = true;
+      applyY(true);
+      window.setTimeout(function () { busy = false; }, 290);
+      return true;
+    }
+
+    function snapX() {
+      viewport.style.transition = "transform 0.2s ease, opacity 0.2s ease";
+      viewport.style.transform = "translate3d(0,0,0)";
+      viewport.style.opacity = "1";
+    }
+
+    function snapY() {
+      applyY(true);
     }
 
     bar.addEventListener("click", function (e) {
+      if (g.moved) return;
       const col = e.target.closest(".col");
       if (!col) return;
-      go(+col.dataset.i);
+      goX(+col.dataset.i);
+    });
+
+    pips.addEventListener("click", function (e) {
+      const dot = e.target.closest("[data-y]");
+      if (!dot) return;
+      goY(+dot.dataset.y);
     });
 
     document.addEventListener("keydown", function (e) {
-      if (e.key === "ArrowRight") { e.preventDefault(); go(cx + 1); }
-      else if (e.key === "ArrowLeft") { e.preventDefault(); go(cx - 1); }
+      if (e.key === "ArrowRight") { e.preventDefault(); goX(cx + 1); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); goX(cx - 1); }
+      else if (e.key === "ArrowDown") { e.preventDefault(); goY(cy + 1); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); goY(cy - 1); }
     });
 
-    let sx = 0, sy = 0, tracking = false;
+    const g = { on: false, axis: null, sx: 0, sy: 0, moved: false };
+    const SLOP = 14;
+
+    function xBlocked(dx) {
+      return (cx === 0 && dx > 0) || (cx === CATS.length - 1 && dx < 0);
+    }
+    function yBlocked(dy) {
+      const n = CATS[cx].items.length;
+      return (cy === 0 && dy > 0) || (cy === n - 1 && dy < 0);
+    }
+
     document.addEventListener("touchstart", function (e) {
-      sx = e.changedTouches[0].clientX;
-      sy = e.changedTouches[0].clientY;
-      tracking = true;
-    }, { passive: true });
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      g.on = true;
+      g.axis = null;
+      g.sx = t.clientX;
+      g.sy = t.clientY;
+      g.moved = false;
+      if (t.clientX < 22) e.preventDefault();
+    }, { passive: false });
+
     document.addEventListener("touchmove", function (e) {
-      if (!tracking || busy) return;
-      const dx = e.changedTouches[0].clientX - sx;
-      const dy = e.changedTouches[0].clientY - sy;
-      if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
-      pane.style.transition = "none";
-      pane.style.transform = "translateX(" + (dx * 0.35) + "px)";
-      pane.style.opacity = String(Math.max(0.45, 1 - Math.abs(dx) / 280));
-    }, { passive: true });
-    document.addEventListener("touchend", function (e) {
-      if (!tracking) return;
-      tracking = false;
-      const dx = e.changedTouches[0].clientX - sx;
-      const dy = e.changedTouches[0].clientY - sy;
-      if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy)) {
-        if (dx < 0) go(cx + 1);
-        else go(cx - 1);
+      if (!g.on) return;
+      if (busy) {
+        e.preventDefault();
         return;
       }
-      pane.style.transition = "transform 0.2s ease, opacity 0.2s ease";
-      pane.style.transform = "translateX(0)";
-      pane.style.opacity = "1";
+      const t = e.touches[0];
+      const dx = t.clientX - g.sx;
+      const dy = t.clientY - g.sy;
+      if (!g.axis) {
+        if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) return;
+        g.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+        g.moved = true;
+      }
+      e.preventDefault();
+      if (g.axis === "x") {
+        if (xBlocked(dx)) {
+          viewport.style.transition = "none";
+          viewport.style.transform = "translate3d(0,0,0)";
+          viewport.style.opacity = "1";
+          return;
+        }
+        viewport.style.transition = "none";
+        viewport.style.transform = "translate3d(" + (dx * 0.35) + "px,0,0)";
+        viewport.style.opacity = String(Math.max(0.45, 1 - Math.abs(dx) / 280));
+      } else {
+        const h = slideH();
+        const base = -cy * h;
+        track.style.transition = "none";
+        if (yBlocked(dy)) {
+          track.style.transform = "translate3d(0," + base + "px,0)";
+          return;
+        }
+        track.style.transform = "translate3d(0," + (base + dy) + "px,0)";
+      }
+    }, { passive: false });
+
+    document.addEventListener("touchend", function (e) {
+      if (!g.on) return;
+      g.on = false;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - g.sx;
+      const dy = t.clientY - g.sy;
+      const axis = g.axis;
+      g.axis = null;
+      if (!axis) return;
+      if (axis === "x") {
+        if (!xBlocked(dx) && Math.abs(dx) > 48) {
+          if (dx < 0) { if (goX(cx + 1)) return; }
+          else { if (goX(cx - 1)) return; }
+        }
+        snapX();
+        return;
+      }
+      if (!yBlocked(dy) && Math.abs(dy) > 40) {
+        if (dy < 0) { if (goY(cy + 1)) return; }
+        else { if (goY(cy - 1)) return; }
+      }
+      snapY();
     }, { passive: true });
 
-    fillPane();
+    document.addEventListener("touchcancel", function () {
+      if (!g.on) return;
+      g.on = false;
+      g.axis = null;
+      snapX();
+      snapY();
+    }, { passive: true });
+
+    document.addEventListener("wheel", function (e) {
+      e.preventDefault();
+      if (busy) return;
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 12) {
+        if (e.deltaX > 0) goX(cx + 1);
+        else goX(cx - 1);
+      } else if (Math.abs(e.deltaY) > 12) {
+        if (e.deltaY > 0) goY(cy + 1);
+        else goY(cy - 1);
+      }
+    }, { passive: false });
+
+    fillTrack();
+    addEventListener("resize", function () { applyY(false); });
 
     const cvs = document.getElementById("wave");
     const ctx = cvs.getContext("2d", { alpha: false });
@@ -339,6 +535,7 @@
       grads[3].addColorStop(0, "#06243f");
       grads[3].addColorStop(0.5, "#04182c");
       grads[3].addColorStop(1, "#020b16");
+      applyY(false);
     }
 
     function ribbon(t, y0, amp, thick, gi) {
@@ -428,15 +625,16 @@
     const began = performance.now();
     Promise.all([
       document.fonts ? document.fonts.ready : Promise.resolve(),
-      loadImg("icon-tino.jpg"),
-      loadImg("icon-encargo.jpg"),
-      loadImg("icon-lista.jpg"),
-      loadImg("icon-correo.jpg"),
+      loadImg("icon-tino.jpg?v=4"),
+      loadImg("icon-encargo.jpg?v=4"),
+      loadImg("icon-lista.jpg?v=4"),
+      loadImg("icon-correo.jpg?v=4"),
       firstWave()
     ]).then(function () {
       const left = Math.max(0, 500 - (performance.now() - began));
       window.setTimeout(function () {
         document.body.classList.add("ready");
+        applyY(false);
         const veil = document.getElementById("veil");
         window.setTimeout(function () {
           if (veil && veil.parentNode) veil.parentNode.removeChild(veil);
