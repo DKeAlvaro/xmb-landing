@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Búsqueda</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="preload" href="icon-tino.jpg" as="image" />
+  <link rel="preload" href="icon-encargo.jpg" as="image" />
+  <link rel="preload" href="icon-lista.jpg" as="image" />
+  <link rel="preload" href="icon-correo.jpg" as="image" />
+  <style>
+    :root {
+      --navy: #03101f;
+      --crest: #8fd4f0;
+      --type: #f4f8fc;
+      --halo: 0 0 4px rgba(255,255,255,0.35);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      min-height: 100%;
+      overflow-x: hidden;
+      overflow-y: auto;
+      background: var(--navy);
+      color: var(--type);
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: Syne, sans-serif;
+      font-weight: 400;
+    }
+    img { max-width: 100%; }
+    canvas {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      display: block; z-index: 0; opacity: 0;
+    }
+    .veil {
+      position: fixed; inset: 0; z-index: 20; background: #03101f;
+    }
+    body.ready .veil { opacity: 0; }
+    body.ready canvas, body.ready .hud { opacity: 1; }
+    body.ready .help { opacity: 0.55; }
+    .hud {
+      position: fixed; top: 1rem; right: 1.3rem; z-index: 4;
+      text-align: right; font-weight: 400; letter-spacing: 0.06em;
+      text-shadow: var(--halo);
+      opacity: 0;
+    }
+    .hud time { display: block; font-size: 1.28rem; }
+    .hud span { font-size: 0.74rem; opacity: 0.75; }
+    .shell {
+      position: relative; z-index: 2;
+      min-height: 100svh;
+      max-width: 100%;
+      display: grid;
+      grid-template-columns: minmax(18rem, 34vw) minmax(16rem, 28rem);
+      gap: 3rem;
+      align-items: start;
+      padding: 22vh 6vw 10vh;
+      opacity: 0;
+    }
+    body.ready .shell { opacity: 1; transition: opacity 0.4s linear; }
+    body.ready .veil { transition: opacity 0.35s linear; }
+    .bar { display: flex; gap: 1rem; }
+    .col {
+      width: 5.2rem; flex: 0 0 5.2rem;
+      cursor: default; user-select: none;
+      display: flex; flex-direction: column;
+      -webkit-user-select: none;
+    }
+    .col img {
+      display: block; width: 5.2rem; height: 5.2rem; max-width: 5.2rem;
+      margin: 0; object-fit: cover; object-position: 50% 46%;
+      transform-origin: 50% 100%;
+      -webkit-mask-image: radial-gradient(closest-side, #000 68%, transparent 86%);
+      mask-image: radial-gradient(closest-side, #000 68%, transparent 86%);
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+    .col:not(.on) { opacity: 0.4; }
+    .col:not(.on) img { transform: scale(0.86); }
+    .col.on img { transform: scale(1); }
+    .cname {
+      display: flex; justify-content: space-around;
+      width: 5.2rem; margin-top: 0.15rem;
+      font-size: 0.86rem; font-weight: 600; letter-spacing: 0.03em;
+      text-shadow: var(--halo);
+    }
+    .stack { margin-top: 0.85rem; }
+    .item {
+      display: flex; align-items: flex-end; gap: 0.55rem;
+      padding: 0.42rem 0;
+      opacity: 0.38; cursor: default; user-select: none;
+    }
+    .item.on { opacity: 1; }
+    .pip {
+      width: 0.38rem; height: 0.38rem; border-radius: 50%;
+      background: #9ad4ee; margin-bottom: 0.32rem;
+    }
+    .item.on .pip { background: #fff; }
+    .item b { font-weight: 600; font-size: 1.05rem; text-shadow: var(--halo); }
+    .pane {
+      padding-top: 1.2rem;
+      will-change: transform, opacity;
+    }
+    .pane h1 {
+      font-size: 1.75rem; font-weight: 600; line-height: 1.2;
+      letter-spacing: 0.01em; margin-bottom: 0.8rem;
+      text-shadow: var(--halo);
+    }
+    .pane p {
+      font-size: 1.05rem; font-weight: 400; line-height: 1.5; margin-top: 0.7rem;
+      text-shadow: var(--halo);
+    }
+    .help {
+      position: fixed; left: 1.2rem; bottom: 0.8rem; z-index: 4;
+      font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+      opacity: 0; font-weight: 400; text-shadow: var(--halo);
+    }
+
+    @media (max-width: 860px) {
+      .hud { top: 0.7rem; right: 0.8rem; }
+      .hud span { display: none; }
+      .help { display: none; }
+      .shell {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        padding: 4.2rem 1.1rem 2rem;
+        min-height: 100svh;
+      }
+      .bar { display: flex; gap: 0.55rem; }
+      .col { width: 4rem; flex: 0 0 4rem; }
+      .col img { width: 4rem; height: 4rem; max-width: 4rem; }
+      .cname { width: 4rem; font-size: 0.72rem; }
+      .stack { margin-top: 0.35rem; }
+      .pane {
+        padding: 0.9rem 0 0;
+        border-top: 1px solid rgba(255,255,255,0.12);
+        margin-top: 0.5rem;
+      }
+      .pane h1 { font-size: 1.32rem; }
+      .pane p { font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="veil" id="veil"></div>
+  <canvas id="wave"></canvas>
+  <div class="hud">
+    <time id="clock"></time>
+    <span id="day"></span>
+  </div>
+
+  <div class="shell" id="shell">
+    <div class="menu">
+      <div class="bar" id="bar"></div>
+      <div class="stack" id="stack" hidden></div>
+    </div>
+    <article class="pane" id="pane"></article>
+  </div>
+  <p class="help">← → ↑ ↓</p>
+
+  <script>
+    const CATS = [
+      {
+        name: "Qué es",
+        img: "icon-tino.jpg",
+        items: [{
+          t: "Alguien tiene que leer las pestañas",
+          body: ["Hay un trabajo que parece fácil y no lo es: dar con las personas correctas. No basta con abrir el buscador. Hay que decidir, pestaña a pestaña, si un laboratorio encaja, si el correo es de verdad, si merece la pena guardarlo."]
+        }]
+      },
+      {
+        name: "Cómo va",
+        img: "icon-encargo.jpg",
+        items: [{
+          t: "Tú dices qué buscas",
+          body: ["Solo te pide lo que quieres encontrar y una breve descripción de quién eres. A partir de ahí se pone a buscar en la red y te manda los resultados."]
+        }]
+      },
+      {
+        name: "La lista",
+        img: "icon-lista.jpg",
+        items: [{
+          t: "Te llega un archivo",
+          body: [
+            "Nombre, correo, organización, por qué encaja, y los enlaces para que puedas comprobarlo. Media hora, más o menos.",
+            "No es un chat. No escribe a esa gente por ti. No te vende la lista de otra persona."
+          ]
+        }]
+      },
+      {
+        name: "Encargar",
+        img: "icon-correo.jpg",
+        items: [{
+          t: "49–79 € por búsqueda",
+          body: ["Pagas el encargo. Media hora más tarde, más o menos, te llega el archivo."]
+        }]
+      }
+    ];
+
+    let cx = 0, cy = 0, busy = false;
+    const bar = document.getElementById("bar");
+    const stack = document.getElementById("stack");
+    const pane = document.getElementById("pane");
+    const shell = document.getElementById("shell");
+
+    function tickClock() {
+      const n = new Date();
+      document.getElementById("clock").textContent =
+        String(n.getHours()).padStart(2, "0") + ":" + String(n.getMinutes()).padStart(2, "0");
+      document.getElementById("day").textContent =
+        n.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+    }
+    function loopClock() { tickClock(); window.setTimeout(loopClock, 20000); }
+    tickClock();
+    loopClock();
+
+    bar.innerHTML = CATS.map((c, i) =>
+      "<div class=\"col" + (i === 0 ? " on" : "") + "\" data-i=\"" + i + "\">" +
+      "<img src=\"" + c.img + "\" alt=\"\" draggable=\"false\" />" +
+      "<span class=\"cname\">" + c.name + "</span></div>"
+    ).join("");
+
+    function fillPane() {
+      const it = CATS[cx].items[cy];
+      pane.innerHTML = "<h1>" + it.t + "</h1>" + it.body.map(function (p) { return "<p>" + p + "</p>"; }).join("");
+    }
+
+    function paintSel() {
+      const cols = bar.children;
+      for (let i = 0; i < cols.length; i++) {
+        if (i === cx) cols[i].classList.add("on");
+        else cols[i].classList.remove("on");
+      }
+      fillPane();
+    }
+
+    function go(next) {
+      if (next === cx || next < 0 || next >= CATS.length || busy) return;
+      const dir = next > cx ? 1 : -1;
+      cx = next;
+      cy = 0;
+      busy = true;
+      pane.style.transition = "transform 0.18s ease, opacity 0.18s ease";
+      pane.style.transform = "translateX(" + (-dir * 28) + "px)";
+      pane.style.opacity = "0";
+      window.setTimeout(function () {
+        paintSel();
+        pane.style.transition = "none";
+        pane.style.transform = "translateX(" + (dir * 28) + "px)";
+        pane.offsetHeight;
+        pane.style.transition = "transform 0.22s ease, opacity 0.22s ease";
+        pane.style.transform = "translateX(0)";
+        pane.style.opacity = "1";
+        window.setTimeout(function () { busy = false; }, 230);
+      }, 170);
+    }
+
+    bar.addEventListener("click", function (e) {
+      const col = e.target.closest(".col");
+      if (!col) return;
+      go(+col.dataset.i);
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowRight") { e.preventDefault(); go(cx + 1); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); go(cx - 1); }
+    });
+
+    let sx = 0, sy = 0, tracking = false;
+    document.addEventListener("touchstart", function (e) {
+      sx = e.changedTouches[0].clientX;
+      sy = e.changedTouches[0].clientY;
+      tracking = true;
+    }, { passive: true });
+    document.addEventListener("touchmove", function (e) {
+      if (!tracking || busy) return;
+      const dx = e.changedTouches[0].clientX - sx;
+      const dy = e.changedTouches[0].clientY - sy;
+      if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
+      pane.style.transition = "none";
+      pane.style.transform = "translateX(" + (dx * 0.35) + "px)";
+      pane.style.opacity = String(Math.max(0.45, 1 - Math.abs(dx) / 280));
+    }, { passive: true });
+    document.addEventListener("touchend", function (e) {
+      if (!tracking) return;
+      tracking = false;
+      const dx = e.changedTouches[0].clientX - sx;
+      const dy = e.changedTouches[0].clientY - sy;
+      if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy)) {
+        if (dx < 0) go(cx + 1);
+        else go(cx - 1);
+        return;
+      }
+      pane.style.transition = "transform 0.2s ease, opacity 0.2s ease";
+      pane.style.transform = "translateX(0)";
+      pane.style.opacity = "1";
+    }, { passive: true });
+
+    fillPane();
+
+    const cvs = document.getElementById("wave");
+    const ctx = cvs.getContext("2d", { alpha: false });
+    const weak = window.matchMedia("(max-width: 860px)").matches;
+    const sparkN = weak ? 10 : 22;
+    const sparks = Array.from({ length: sparkN }, function () {
+      return { x: Math.random(), y: Math.random(), s: 0.4 + Math.random() * 1.2, v: 0.02 + Math.random() * 0.04 };
+    });
+    let t0 = 0;
+    let dpr = 1;
+    let step = 8;
+    let grads = [];
+    let running = true;
+
+    function size() {
+      const portrait = innerHeight > innerWidth;
+      dpr = Math.min(window.devicePixelRatio || 1, weak || portrait ? 1.15 : 1.4);
+      step = portrait ? 10 : 8;
+      cvs.width = Math.floor(innerWidth * dpr);
+      cvs.height = Math.floor(innerHeight * dpr);
+      grads = [
+        ctx.createLinearGradient(0, 0, cvs.width, 0),
+        ctx.createLinearGradient(0, 0, cvs.width, 0),
+        ctx.createLinearGradient(0, 0, cvs.width, 0),
+        ctx.createLinearGradient(0, 0, 0, cvs.height)
+      ];
+      grads[0].addColorStop(0, "rgba(20,90,150,0.2)");
+      grads[0].addColorStop(0.5, "rgba(140,210,240,0.3)");
+      grads[0].addColorStop(1, "rgba(20,90,150,0.2)");
+      grads[1].addColorStop(0, "rgba(30,110,170,0.22)");
+      grads[1].addColorStop(0.5, "rgba(180,230,250,0.34)");
+      grads[1].addColorStop(1, "rgba(30,110,170,0.22)");
+      grads[2].addColorStop(0, "rgba(180,230,255,0.18)");
+      grads[2].addColorStop(0.5, "rgba(230,250,255,0.36)");
+      grads[2].addColorStop(1, "rgba(180,230,255,0.18)");
+      grads[3].addColorStop(0, "#06243f");
+      grads[3].addColorStop(0.5, "#04182c");
+      grads[3].addColorStop(1, "#020b16");
+    }
+
+    function ribbon(t, y0, amp, thick, gi) {
+      const w = cvs.width, h = cvs.height;
+      const portrait = h > w;
+      const x0 = -w * 0.45;
+      const x1 = w * 1.45;
+      const freq = portrait ? 2.7 : 4.2;
+      const ampPx = amp * (portrait ? w * 0.42 : h);
+      const yBase = y0 * h;
+      ctx.beginPath();
+      ctx.moveTo(x0, yBase);
+      for (let x = x0 + step; x <= x1; x += step) {
+        const u = (x - x0) / (x1 - x0);
+        const y = yBase
+          + Math.sin(u * freq + t) * ampPx
+          + Math.sin(u * freq * 2.05 - t * 0.65) * ampPx * 0.38;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineWidth = portrait ? thick * w : thick * h;
+      ctx.strokeStyle = grads[gi];
+      ctx.stroke();
+    }
+
+    function frame(now) {
+      if (!running) return;
+      if (!t0) t0 = now;
+      const t = (now - t0) / 1000;
+      const w = cvs.width, h = cvs.height;
+      const portrait = h > w;
+      ctx.fillStyle = grads[3];
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalCompositeOperation = "lighter";
+      if (portrait) {
+        ribbon(t * 0.48, 0.76, 0.12, 0.072, 0);
+        ribbon(t * 0.4 + 0.9, 0.775, 0.11, 0.052, 1);
+        ribbon(t * 0.36 + 1.8, 0.79, 0.1, 0.034, 2);
+        ribbon(t * 0.44 + 2.6, 0.765, 0.105, 0.024, 1);
+      } else {
+        ribbon(t * 0.55, 0.78, 0.07, 0.07, 0);
+        ribbon(t * 0.42 + 1.2, 0.82, 0.055, 0.038, 1);
+        ribbon(t * 0.38 + 2.4, 0.86, 0.04, 0.016, 2);
+      }
+      for (let i = 0; i < sparks.length; i++) {
+        const p = sparks[i];
+        p.x += p.v * 0.0015;
+        if (p.x > 1.05) p.x = -0.05;
+        const tw = 0.35 + 0.65 * Math.abs(Math.sin(t * 2 + p.s * 8));
+        ctx.fillStyle = "rgba(220,245,255," + (0.16 * tw) + ")";
+        ctx.beginPath();
+        ctx.arc(p.x * w, p.y * h, p.s * dpr, 0, 6.283185);
+        ctx.fill();
+      }
+      ctx.globalCompositeOperation = "source-over";
+      requestAnimationFrame(frame);
+    }
+
+    document.addEventListener("visibilitychange", function () {
+      running = !document.hidden;
+      if (running) {
+        t0 = 0;
+        requestAnimationFrame(frame);
+      }
+    });
+
+    size();
+    addEventListener("resize", size);
+
+    function loadImg(src) {
+      return new Promise(function (ok) {
+        const im = new Image();
+        im.onload = function () { ok(); };
+        im.onerror = function () { ok(); };
+        im.src = src;
+      });
+    }
+
+    function firstWave() {
+      return new Promise(function (ok) {
+        requestAnimationFrame(function (now) {
+          frame(now);
+          requestAnimationFrame(function () { ok(); });
+        });
+      });
+    }
+
+    const began = performance.now();
+    Promise.all([
+      document.fonts ? document.fonts.ready : Promise.resolve(),
+      loadImg("icon-tino.jpg"),
+      loadImg("icon-encargo.jpg"),
+      loadImg("icon-lista.jpg"),
+      loadImg("icon-correo.jpg"),
+      firstWave()
+    ]).then(function () {
+      const left = Math.max(0, 500 - (performance.now() - began));
+      window.setTimeout(function () {
+        document.body.classList.add("ready");
+        const veil = document.getElementById("veil");
+        window.setTimeout(function () {
+          if (veil && veil.parentNode) veil.parentNode.removeChild(veil);
+        }, 400);
+      }, left);
+    });
+  </script>
+</body>
+</html>

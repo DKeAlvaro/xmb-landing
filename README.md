@@ -1,0 +1,4 @@
+# Busqueda
+
+Landing estatica.
+
